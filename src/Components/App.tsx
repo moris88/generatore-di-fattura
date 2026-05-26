@@ -1,13 +1,16 @@
 import html2canvas from 'html2canvas'
-import { ArrowLeft, Eye, SubmitDocument } from 'iconoir-react'
+import { ArrowLeft, Camera, Eye, SubmitDocument } from 'iconoir-react'
 import { jsPDF } from 'jspdf'
 import { PDFDocument } from 'pdf-lib'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import FormFattura from './FormFattura'
 import GeneraFattura from './GeneraFattura'
 import Popup from './Popup'
 import SignPad from './SignPad'
+import WebcamCapture from './WebcamCapture'
+
+const STORAGE_KEY = 'ultima_fattura_data'
 
 export default function App() {
   const [attachments, setAttachments] = useState<File[]>([])
@@ -17,6 +20,29 @@ export default function App() {
   const [generated, setGenerated] = useState<boolean>(false)
   const [showPreview, setShowPreview] = useState<boolean>(false)
   const [showPopup, setShowPopup] = useState<boolean>(false)
+  const [showWebcam, setShowWebcam] = useState<boolean>(false)
+  const [isFormValid, setIsFormValid] = useState<boolean>(false)
+
+  // Carica i dati dal localStorage all'avvio
+  useEffect(() => {
+    const savedData = localStorage.getItem(STORAGE_KEY)
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData)
+        setFatturaData(parsed)
+        setGenerated(true)
+      } catch (e) {
+        console.error('Errore nel caricamento dei dati salvati', e)
+      }
+    }
+  }, [])
+
+  // Salva i dati nel localStorage ogni volta che cambiano
+  useEffect(() => {
+    if (fatturaData) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(fatturaData))
+    }
+  }, [fatturaData])
 
   // Aggiungi allegati PDF
   const handleAddAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,7 +173,7 @@ export default function App() {
     })
 
   return (
-    <div className="flex min-h-screen flex-col items-center gap-6 bg-gray-100 p-4">
+    <div className="flex min-h-screen flex-col items-center gap-6 bg-gray-100 p-2 sm:p-4">
       {showPopup && (
         <Popup
           isOpen={showPopup}
@@ -155,90 +181,140 @@ export default function App() {
           onConfirm={handleGeneratePDF}
         />
       )}
-      <div className="flex flex-col items-start justify-center gap-4 p-6 lg:flex-row">
-        <div className="w-full rounded-2xl bg-white p-6 shadow-md">
-          <h1 className="text-center text-xl font-bold uppercase">
+      <div className="flex w-full max-w-7xl flex-col items-start justify-center gap-4 lg:flex-row lg:p-6">
+        <div className="w-full flex-1 rounded-2xl bg-white p-4 shadow-md sm:p-6">
+          <h1 className="mb-6 text-center text-xl font-black uppercase tracking-tight text-blue-700 sm:text-2xl">
             Generatore di fattura
           </h1>
 
           <FormFattura
+            initialData={fatturaData}
             onChange={(e) => {
               setGenerated(true)
               setFatturaData(e)
             }}
+            onValidationChange={setIsFormValid}
           />
 
-          <div className="mt-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex w-full flex-col gap-2 lg:w-1/2">
-              <label className="font-semibold">Firma digitale tecnico:</label>
-              <SignPad
-                value={technicalSignature}
-                onChange={setTechnicalSignature}
-              />
+          <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-bold uppercase text-gray-700">
+                Firma digitale tecnico:
+              </label>
+              <div className="overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                <SignPad
+                  value={technicalSignature}
+                  onChange={setTechnicalSignature}
+                />
+              </div>
             </div>
-            <div className="flex w-full flex-col gap-2 lg:w-1/2">
-              <label className="font-semibold">Firma digitale cliente:</label>
-              <SignPad value={signature} onChange={setSignature} />
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-bold uppercase text-gray-700">
+                Firma digitale cliente:
+              </label>
+              <div className="overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50">
+                <SignPad value={signature} onChange={setSignature} />
+              </div>
             </div>
           </div>
 
-          <div className="flex w-full flex-col gap-2">
-            <label className="font-semibold">Allega file PDF:</label>
-            <input
-              multiple
-              accept="application/pdf"
-              type="file"
-              onChange={handleAddAttachment}
-            />
-            <label className="font-semibold">Scatta o carica foto:</label>
-            <input
-              multiple
-              accept="image/*"
-              capture="environment"
-              type="file"
-              onChange={handleAddPhoto}
-            />
+          <div className="mt-8 flex flex-col gap-4 border-t pt-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold">Allega file PDF:</label>
+                <input
+                  multiple
+                  accept="application/pdf"
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-full file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  type="file"
+                  onChange={handleAddAttachment}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-semibold">
+                  Foto e Allegati Immagine:
+                </label>
+                <div className="flex flex-col gap-2 lg:flex-row">
+                  <input
+                    multiple
+                    accept="image/*"
+                    className="flex-1 block w-full text-sm text-gray-500 file:mr-4 file:rounded-full file:border-0 file:bg-green-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-green-700 hover:file:bg-green-100 cursor-pointer"
+                    type="file"
+                    onChange={handleAddPhoto}
+                  />
+                  <button
+                    className="flex items-center justify-center gap-2 rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+                    onClick={() => setShowWebcam(true)}
+                  >
+                    <Camera className="h-4 w-4" />
+                    Usa Webcam/Fotocamera
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-4">
+          <div className="mt-8 flex items-center justify-center gap-4">
             <button
-              className="btn btn-primary"
-              disabled={!setGenerated}
-              onClick={() => setShowPreview(true)}
+              className={`btn btn-primary flex w-full items-center justify-center gap-2 py-4 sm:w-auto sm:px-12 transition-all duration-300 ${!isFormValid ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-105'}`}
+              disabled={!isFormValid}
+              onClick={() => {
+                setShowPreview(true)
+                // Scroll to preview on mobile
+                if (window.innerWidth < 1024) {
+                  setTimeout(() => {
+                    document
+                      .getElementById('preview-section')
+                      ?.scrollIntoView({ behavior: 'smooth' })
+                  }, 100)
+                }
+              }}
             >
               <Eye />
-              Anteprima
+              {isFormValid ? 'Anteprima Fattura' : 'Compila i campi obbligatori'}
             </button>
           </div>
         </div>
+
         {generated && showPreview && (
-          <div className="flex flex-col items-center gap-2">
-            <GeneraFattura
-              fatturaData={fatturaData}
-              signature={signature}
-              technicalSignature={technicalSignature}
-            />
-            <div className="mt-4 flex items-center justify-center gap-4">
+          <div
+            className="flex w-full flex-col items-center gap-4 lg:w-auto"
+            id="preview-section"
+          >
+            <div className="w-full overflow-x-auto rounded-xl bg-white p-2 shadow-xl sm:p-4">
+              <GeneraFattura
+                fatturaData={fatturaData}
+                signature={signature}
+                technicalSignature={technicalSignature}
+              />
+            </div>
+            <div className="mt-4 flex w-full flex-col items-center justify-center gap-4 sm:flex-row">
               <button
-                className="btn btn-secondary"
+                className="btn btn-secondary flex w-full items-center justify-center gap-2 sm:w-auto"
                 onClick={() => setShowPreview(false)}
               >
                 <ArrowLeft />
-                Chiudi
+                Modifica Dati
               </button>
               <button
-                className="btn btn-primary"
-                disabled={!setGenerated}
+                className="btn btn-primary flex w-full items-center justify-center gap-2 sm:w-auto"
+                disabled={!isFormValid}
                 onClick={() => setShowPopup(true)}
               >
                 <SubmitDocument />
-                Genera PDF
+                Scarica PDF Finale
               </button>
             </div>
           </div>
         )}
       </div>
-      {/* <pre>{JSON.stringify(fatturaData, null, 3)}</pre> */}
+
+      {showWebcam && (
+        <WebcamCapture
+          onCapture={(file) => setAttachments([...attachments, file])}
+          onClose={() => setShowWebcam(false)}
+        />
+      )}
     </div>
   )
 }

@@ -6,43 +6,97 @@ import type { FatturaData, Prodotto } from '@/types'
 
 interface FormFatturaProps {
   onChange: (data: FatturaData) => void
+  initialData?: FatturaData
+  onValidationChange?: (isValid: boolean) => void
 }
 
-function FormFattura({ onChange }: Readonly<FormFatturaProps>) {
-  const [fattura, setFattura] = useState<FatturaData>({
-    numero: '',
-    data: new Date().toLocaleDateString(),
-    luogo: '',
-    cliente: {
-      nome: '',
-      indirizzo: '',
-      email: '',
-      telefono: '',
-      partita_iva: '',
-    },
-    sconto: undefined,
-    prodotti: [{ descrizione: 'prodotto 1', quantita: 0, prezzo_unitario: 0 }],
-    totale_imponibile: 0,
-    totale: 0,
-    totale_scontato: 0,
-    iva_percentuale: 22,
-    note: '',
-  })
+function FormFattura({ onChange, initialData, onValidationChange }: Readonly<FormFatturaProps>) {
+  const [fattura, setFattura] = useState<FatturaData>(
+    initialData ?? {
+      numero: '',
+      data: new Date().toLocaleDateString(),
+      luogo: '',
+      emittente: {
+        nome: '',
+        indirizzo: '',
+        email: '',
+        telefono: '',
+        partita_iva: '',
+        pec: '',
+      },
+      cliente: {
+        nome: '',
+        indirizzo: '',
+        email: '',
+        telefono: '',
+        partita_iva: '',
+      },
+      sconto: undefined,
+      prodotti: [{ descrizione: '', quantita: 0, prezzo_unitario: 0, sconto: 0 }],
+      totale_imponibile: 0,
+      totale: 0,
+      totale_scontato: 0,
+      iva_percentuale: 22,
+      note: '',
+    }
+  )
+
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const validate = (data: FatturaData) => {
+    const newErrors: Record<string, string> = {}
+
+    // Validazione Emittente
+    if (!data.emittente.nome.trim()) newErrors['emittente.nome'] = 'Ragione sociale obbligatoria'
+    if (!data.emittente.partita_iva.trim()) newErrors['emittente.partita_iva'] = 'P.IVA obbligatoria'
+    if (!data.emittente.email.trim()) newErrors['emittente.email'] = 'Email obbligatoria'
+
+    // Validazione Cliente
+    if (!data.cliente.nome.trim()) newErrors['cliente.nome'] = 'Ragione sociale obbligatoria'
+    if (!data.cliente.partita_iva.trim()) newErrors['cliente.partita_iva'] = 'P.IVA obbligatoria'
+    if (!data.cliente.email.trim()) newErrors['cliente.email'] = 'Email obbligatoria'
+
+    // Validazione Prodotti
+    if (data.prodotti.length === 0) {
+      newErrors['prodotti'] = 'Aggiungi almeno un prodotto'
+    } else {
+      data.prodotti.forEach((p, idx) => {
+        if (!p.descrizione.trim()) newErrors[`prodotti.${idx}.descrizione`] = 'Descrizione obbligatoria'
+        if (p.quantita <= 0) newErrors[`prodotti.${idx}.quantita`] = 'Minimo 1'
+        if (p.prezzo_unitario <= 0) newErrors[`prodotti.${idx}.prezzo`] = 'Maggiore di 0'
+      })
+    }
+
+    setErrors(newErrors)
+    const isValid = Object.keys(newErrors).length === 0
+    onValidationChange?.(isValid)
+    return isValid
+  }
+
+  const calculateTotals = (updatedFattura: FatturaData) => {
+    const totaleImponibile = updatedFattura.prodotti.reduce(
+      (sum, p) => sum + (p.quantita * p.prezzo_unitario - (p.sconto ?? 0)),
+      0
+    )
+
+    const imponibileScontato = Math.max(
+      totaleImponibile - (updatedFattura.sconto ?? 0),
+      0
+    )
+    const totale = imponibileScontato * (1 + (updatedFattura.iva_percentuale || 0) / 100)
+
+    const result = {
+      ...updatedFattura,
+      totale_imponibile: totaleImponibile,
+      totale_scontato: imponibileScontato,
+      totale: totale,
+    }
+    validate(result)
+    return result
+  }
 
   const handleChange = (field: string, value: any) => {
-    let updated = { ...fattura, [field]: value }
-    if (field === 'sconto') {
-      const imponibileScontato = Math.max(
-        fattura.totale_imponibile - (value ?? 0),
-        0
-      )
-      const totale = imponibileScontato * (1 + fattura.iva_percentuale / 100)
-      updated = {
-        ...updated,
-        totale_scontato: imponibileScontato,
-        totale,
-      }
-    }
+    const updated = calculateTotals({ ...fattura, [field]: value })
     setFattura(updated)
     onChange(updated)
   }
@@ -55,29 +109,10 @@ function FormFattura({ onChange }: Readonly<FormFatturaProps>) {
     const updatedProducts = [...fattura.prodotti] as Prodotto[]
     updatedProducts[index] = {
       ...updatedProducts[index],
-      [field]: field === 'descrizione' ? value : parseFloat(value),
+      [field]: field === 'descrizione' ? value : parseFloat(value || 0),
     }
 
-    const totaleImponibile = updatedProducts.reduce(
-      (sum, p) => sum + p.quantita * p.prezzo_unitario,
-      0
-    )
-
-    // Calcolo con sconto PRIMA dell’IVA
-    const imponibileScontato = Math.max(
-      totaleImponibile - (fattura.sconto ?? 0),
-      0
-    )
-    const totale = imponibileScontato * (1 + fattura.iva_percentuale / 100)
-
-    const updated = {
-      ...fattura,
-      prodotti: updatedProducts,
-      totale_imponibile: totaleImponibile,
-      totale,
-      totale_scontato: imponibileScontato,
-    }
-
+    const updated = calculateTotals({ ...fattura, prodotti: updatedProducts })
     setFattura(updated)
     onChange(updated)
   }
@@ -85,34 +120,44 @@ function FormFattura({ onChange }: Readonly<FormFatturaProps>) {
   const addProdotto = () => {
     const updatedProducts = [
       ...fattura.prodotti,
-      { descrizione: '', quantita: 1, prezzo_unitario: 0 },
+      { descrizione: '', quantita: 1, prezzo_unitario: 0, sconto: 0 },
     ]
-    setFattura({ ...fattura, prodotti: updatedProducts })
-    onChange({ ...fattura, prodotti: updatedProducts })
+    const updated = calculateTotals({ ...fattura, prodotti: updatedProducts })
+    setFattura(updated)
+    onChange(updated)
   }
 
+  const getErrorClass = (key: string) => errors[key] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <h2 className="text-lg font-bold">Inserisci dati fattura</h2>
 
       {/* Numero e Data */}
-      <div className="flex flex-col gap-2 lg:flex-row">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="flex flex-col">
-          <label htmlFor="numero">Numero</label>
+          <label className="text-sm font-medium" htmlFor="numero">
+            Numero
+          </label>
           <input
+            className="rounded border p-2 border-gray-300"
             id="numero"
-            placeholder="Numero"
+            placeholder={`Es: ${new Date().getFullYear()}/001`}
             type="text"
             value={fattura.numero}
-            onChange={(e) => handleChange('numero', e.target.value)}
+            onChange={(e) => {
+              handleChange('numero', e.target.value)
+            }}
           />
         </div>
 
         <div className="flex flex-col">
-          <label htmlFor="data">Data</label>
+          <label className="text-sm font-medium" htmlFor="data">
+            Data
+          </label>
           <input
+            className="rounded border p-2 border-gray-300"
             id="data"
-            placeholder="Data"
             type="date"
             value={
               fattura.data
@@ -129,10 +174,13 @@ function FormFattura({ onChange }: Readonly<FormFatturaProps>) {
         </div>
 
         <div className="flex flex-col">
-          <label htmlFor="luogo">Luogo</label>
+          <label className="text-sm font-medium" htmlFor="luogo">
+            Luogo
+          </label>
           <input
+            className="rounded border p-2 border-gray-300"
             id="luogo"
-            placeholder="Luogo"
+            placeholder="Luogo di emissione"
             type="text"
             value={fattura.luogo}
             onChange={(e) => handleChange('luogo', e.target.value)}
@@ -140,185 +188,379 @@ function FormFattura({ onChange }: Readonly<FormFatturaProps>) {
         </div>
       </div>
 
+      {/* Emittente (Intestatario) */}
+      <div className="rounded-lg border border-gray-300 shadow-sm bg-gray-50 p-4">
+        <h3 className="mb-4 font-semibold text-blue-700">
+          Emittente (Intestatario) *
+        </h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="emittente-nome">
+              Ragione sociale *
+            </label>
+            <input
+              className={`rounded border p-2 ${getErrorClass('emittente.nome')}`}
+              id="emittente-nome"
+              placeholder="Nome azienda o professionista"
+              type="text"
+              value={fattura.emittente.nome}
+              onChange={(e) =>
+                handleChange('emittente', {
+                  ...fattura.emittente,
+                  nome: e.target.value,
+                })
+              }
+            />
+            {errors['emittente.nome'] && <span className="text-xs text-red-600 mt-1">{errors['emittente.nome']}</span>}
+          </div>
+          <div className="flex flex-col">
+            <label
+              className="text-sm font-medium"
+              htmlFor="emittente-indirizzo"
+            >
+              Indirizzo
+            </label>
+            <input
+              className="rounded border p-2 border-gray-300"
+              id="emittente-indirizzo"
+              placeholder="Via, civico, città"
+              type="text"
+              value={fattura.emittente.indirizzo}
+              onChange={(e) =>
+                handleChange('emittente', {
+                  ...fattura.emittente,
+                  indirizzo: e.target.value,
+                })
+              }
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="emittente-piva">
+              P.IVA *
+            </label>
+            <input
+              className={`rounded border p-2 ${getErrorClass('emittente.partita_iva')}`}
+              id="emittente-piva"
+              placeholder="Partita IVA"
+              type="text"
+              value={fattura.emittente.partita_iva}
+              onChange={(e) =>
+                handleChange('emittente', {
+                  ...fattura.emittente,
+                  partita_iva: e.target.value,
+                })
+              }
+            />
+            {errors['emittente.partita_iva'] && <span className="text-xs text-red-600 mt-1">{errors['emittente.partita_iva']}</span>}
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="emittente-email">
+              Email *
+            </label>
+            <input
+              className={`rounded border p-2 ${getErrorClass('emittente.email')}`}
+              id="emittente-email"
+              placeholder="Email aziendale"
+              type="email"
+              value={fattura.emittente.email}
+              onChange={(e) =>
+                handleChange('emittente', {
+                  ...fattura.emittente,
+                  email: e.target.value,
+                })
+              }
+            />
+            {errors['emittente.email'] && <span className="text-xs text-red-600 mt-1">{errors['emittente.email']}</span>}
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="emittente-pec">
+              PEC
+            </label>
+            <input
+              className="rounded border p-2 border-gray-300"
+              id="emittente-pec"
+              placeholder="Indirizzo PEC"
+              type="text"
+              value={fattura.emittente.pec}
+              onChange={(e) =>
+                handleChange('emittente', {
+                  ...fattura.emittente,
+                  pec: e.target.value,
+                })
+              }
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="emittente-telefono">
+              Telefono
+            </label>
+            <input
+              className="rounded border p-2 border-gray-300"
+              id="emittente-telefono"
+              placeholder="Contatto telefonico"
+              type="tel"
+              value={fattura.emittente.telefono}
+              onChange={(e) =>
+                handleChange('emittente', {
+                  ...fattura.emittente,
+                  telefono: e.target.value,
+                })
+              }
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Cliente */}
-      <h3 className="mb-2 font-semibold">Cliente</h3>
-      <div className="flex flex-col flex-wrap gap-2 lg:flex-row">
-        <div className="flex flex-col">
-          <label htmlFor="cliente-nome">Ragione sociale</label>
-          <input
-            id="cliente-nome"
-            placeholder="Ragione sociale"
-            type="text"
-            value={fattura.cliente.nome}
-            onChange={(e) =>
-              handleChange('cliente', {
-                ...fattura.cliente,
-                nome: e.target.value,
-              })
-            }
-          />
-        </div>
-        <div className="flex flex-col">
-          <label htmlFor="cliente-indirizzo">Indirizzo</label>
-          <input
-            id="cliente-indirizzo"
-            placeholder="Indirizzo"
-            type="text"
-            value={fattura.cliente.indirizzo}
-            onChange={(e) =>
-              handleChange('cliente', {
-                ...fattura.cliente,
-                indirizzo: e.target.value,
-              })
-            }
-          />
-        </div>
-        <div className="flex flex-col">
-          <label htmlFor="cliente-email">Email</label>
-          <input
-            id="cliente-email"
-            placeholder="Email"
-            type="email"
-            value={fattura.cliente.email}
-            onChange={(e) =>
-              handleChange('cliente', {
-                ...fattura.cliente,
-                email: e.target.value,
-              })
-            }
-          />
-        </div>
-        <div className="flex flex-col">
-          <label htmlFor="cliente-telefono">Telefono</label>
-          <input
-            id="cliente-telefono"
-            placeholder="Telefono"
-            type="tel"
-            value={fattura.cliente.telefono}
-            onChange={(e) =>
-              handleChange('cliente', {
-                ...fattura.cliente,
-                telefono: e.target.value,
-              })
-            }
-          />
-        </div>
-        <div className="flex flex-col">
-          <label htmlFor="cliente-piva">P.IVA</label>
-          <input
-            id="cliente-piva"
-            placeholder="P.IVA"
-            type="text"
-            value={fattura.cliente.partita_iva}
-            onChange={(e) =>
-              handleChange('cliente', {
-                ...fattura.cliente,
-                partita_iva: e.target.value,
-              })
-            }
-          />
+      <div className="rounded-lg border bg-gray-50 border-gray-300 p-4 shadow-sm">
+        <h3 className="mb-4 font-semibold text-gray-700">Cliente *</h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="cliente-nome">
+              Ragione sociale *
+            </label>
+            <input
+              className={`rounded border p-2 ${getErrorClass('cliente.nome')}`}
+              id="cliente-nome"
+              placeholder="Ragione sociale cliente"
+              type="text"
+              value={fattura.cliente.nome}
+              onChange={(e) =>
+                handleChange('cliente', {
+                  ...fattura.cliente,
+                  nome: e.target.value,
+                })
+              }
+            />
+            {errors['cliente.nome'] && <span className="text-xs text-red-600 mt-1">{errors['cliente.nome']}</span>}
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="cliente-indirizzo">
+              Indirizzo
+            </label>
+            <input
+              className="rounded border p-2 border-gray-300"
+              id="cliente-indirizzo"
+              placeholder="Indirizzo cliente"
+              type="text"
+              value={fattura.cliente.indirizzo}
+              onChange={(e) =>
+                handleChange('cliente', {
+                  ...fattura.cliente,
+                  indirizzo: e.target.value,
+                })
+              }
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="cliente-piva">
+              P.IVA *
+            </label>
+            <input
+              className={`rounded border p-2 ${getErrorClass('cliente.partita_iva')}`}
+              id="cliente-piva"
+              placeholder="P.IVA cliente"
+              type="text"
+              value={fattura.cliente.partita_iva}
+              onChange={(e) =>
+                handleChange('cliente', {
+                  ...fattura.cliente,
+                  partita_iva: e.target.value,
+                })
+              }
+            />
+            {errors['cliente.partita_iva'] && <span className="text-xs text-red-600 mt-1">{errors['cliente.partita_iva']}</span>}
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="cliente-email">
+              Email/PEC *
+            </label>
+            <input
+              className={`rounded border p-2 ${getErrorClass('cliente.email')}`}
+              id="cliente-email"
+              placeholder="Email o PEC cliente"
+              type="email"
+              value={fattura.cliente.email}
+              onChange={(e) =>
+                handleChange('cliente', {
+                  ...fattura.cliente,
+                  email: e.target.value,
+                })
+              }
+            />
+            {errors['cliente.email'] && <span className="text-xs text-red-600 mt-1">{errors['cliente.email']}</span>}
+          </div>
+          <div className="flex flex-col">
+            <label className="text-sm font-medium" htmlFor="cliente-telefono">
+              Telefono
+            </label>
+            <input
+              className="rounded border p-2 border-gray-300"
+              id="cliente-telefono"
+              placeholder="Telefono cliente"
+              type="tel"
+              value={fattura.cliente.telefono}
+              onChange={(e) =>
+                handleChange('cliente', {
+                  ...fattura.cliente,
+                  telefono: e.target.value,
+                })
+              }
+            />
+          </div>
         </div>
       </div>
 
       {/* Prodotti */}
-      <h3 className="mb-2 font-semibold">Prodotti/Servizi</h3>
-      <div className="flex flex-col">
-        {fattura.prodotti.length === 0 && (
-          <p className="mb-2 text-sm text-gray-500">Nessun prodotto aggiunto</p>
-        )}
-        {fattura.prodotti.map((p, idx) => (
-          <div key={idx} className="mb-2 flex flex-col gap-2 lg:flex-row">
-            <div className="flex flex-col">
-              <label htmlFor={`descrizione-${idx}`}>Descrizione</label>
-              <input
-                id={`descrizione-${idx}`}
-                placeholder="Descrizione"
-                type="text"
-                value={p.descrizione}
-                onChange={(e) =>
-                  handleProdottoChange(idx, 'descrizione', e.target.value)
-                }
-              />
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor={`quantita-${idx}`}>Quantità</label>
-              <input
-                id={`quantita-${idx}`}
-                min={0}
-                placeholder="Quantità"
-                step={1}
-                type="number"
-                value={p.quantita}
-                onChange={(e) =>
-                  handleProdottoChange(idx, 'quantita', e.target.value)
-                }
-              />
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor={`prezzo-${idx}`}>Prezzo Unitario</label>
-              <input
-                id={`prezzo-${idx}`}
-                min={0}
-                placeholder="Prezzo Unitario"
-                step={0.01}
-                type="number"
-                value={p.prezzo_unitario}
-                onChange={(e) =>
-                  handleProdottoChange(idx, 'prezzo_unitario', e.target.value)
-                }
-              />
-            </div>
-            <div className="flex flex-col">
-              <label htmlFor={`quantita-${idx}`}>Tot.</label>
-              <input
-                disabled
-                id={`quantita-${idx}`}
-                type="number"
-                value={p.quantita * p.prezzo_unitario}
-              />
-            </div>
-            <div className="flex items-end gap-2">
-              <button
-                className="btn btn-secondary"
-                type="button"
-                onClick={() => {
-                  const updatedProducts = fattura.prodotti.filter(
-                    (_, i) => i !== idx
-                  )
-                  const totaleImponibile = updatedProducts.reduce(
-                    (sum, p) => sum + p.quantita * p.prezzo_unitario,
-                    0
-                  )
-                  const imponibileScontato = Math.max(
-                    totaleImponibile - (fattura.sconto ?? 0),
-                    0
-                  )
-                  const totale =
-                    imponibileScontato * (fattura.iva_percentuale / 100)
-                  const updated = {
-                    ...fattura,
-                    prodotti: updatedProducts,
-                    totale_imponibile: totaleImponibile,
-                    totale_scontato: imponibileScontato,
-                    totale: totale,
+      <div>
+        <h3 className="mb-4 font-semibold">Prodotti/Servizi *</h3>
+        <div className="space-y-4">
+          {fattura.prodotti.length === 0 && (
+            <p className="text-sm text-red-500 font-medium">Aggiungi almeno un prodotto per generare la fattura.</p>
+          )}
+          {fattura.prodotti.map((p, idx) => (
+            <div
+              key={idx}
+              className={`flex flex-col gap-4 rounded-lg border border-gray-300 bg-white p-4 shadow-sm lg:flex-row lg:items-end ${errors[`prodotti.${idx}.descrizione`] || errors[`prodotti.${idx}.quantita`] || errors[`prodotti.${idx}.prezzo`] ? 'border-red-200 bg-red-50' : 'bg-white'}`}
+            >
+              <div className="flex-3 flex flex-col">
+                <label
+                  className="text-xs font-medium text-gray-500"
+                  htmlFor={`descrizione-${idx}`}
+                >
+                  Descrizione *
+                </label>
+                <textarea
+                  className={`rounded border p-2 min-h-10 resize-y ${getErrorClass(`prodotti.${idx}.descrizione`)}`}
+                  id={`descrizione-${idx}`}
+                  placeholder="Cosa stai fatturando?"
+                  rows={1}
+                  value={p.descrizione}
+                  onChange={(e) =>
+                    handleProdottoChange(idx, 'descrizione', e.target.value)
                   }
-                  setFattura(updated)
-                  onChange(updated)
-                }}
-              >
-                <Trash />
-                Rimuovi
-              </button>
+                />
+                {errors[`prodotti.${idx}.descrizione`] && <span className="text-[10px] text-red-600 mt-0.5">{errors[`prodotti.${idx}.descrizione`]}</span>}
+              </div>
+              <div className="flex-2 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4">
+                <div className="flex flex-col">
+                  <label
+                    className="text-xs font-medium text-gray-500"
+                    htmlFor={`quantita-${idx}`}
+                  >
+                    Qtà *
+                  </label>
+                  <input
+                    className={`rounded border p-2 ${getErrorClass(`prodotti.${idx}.quantita`)}`}
+                    id={`quantita-${idx}`}
+                    min={0}
+                    placeholder="0"
+                    step={1}
+                    type="number"
+                    value={p.quantita}
+                    onChange={(e) =>
+                      handleProdottoChange(idx, 'quantita', e.target.value)
+                    }
+                  />
+                  {errors[`prodotti.${idx}.quantita`] && <span className="text-[10px] text-red-600 mt-0.5">{errors[`prodotti.${idx}.quantita`]}</span>}
+                </div>
+                <div className="flex flex-col">
+                  <label
+                    className="text-xs font-medium text-gray-500"
+                    htmlFor={`prezzo-${idx}`}
+                  >
+                    Prezzo *
+                  </label>
+                  <input
+                    className={`rounded border p-2 ${getErrorClass(`prodotti.${idx}.prezzo`)}`}
+                    id={`prezzo-${idx}`}
+                    min={0}
+                    placeholder="0.00"
+                    step={0.01}
+                    type="number"
+                    value={p.prezzo_unitario}
+                    onChange={(e) =>
+                      handleProdottoChange(
+                        idx,
+                        'prezzo_unitario',
+                        e.target.value
+                      )
+                    }
+                  />
+                  {errors[`prodotti.${idx}.prezzo`] && <span className="text-[10px] text-red-600 mt-0.5">{errors[`prodotti.${idx}.prezzo`]}</span>}
+                </div>
+                <div className="flex flex-col">
+                  <label
+                    className="text-xs font-medium text-gray-500"
+                    htmlFor={`sconto-prodotto-${idx}`}
+                  >
+                    Sconto
+                  </label>
+                  <input
+                    className="rounded border p-2 border-gray-300"
+                    id={`sconto-prodotto-${idx}`}
+                    min={0}
+                    placeholder="0.00"
+                    step={0.01}
+                    type="number"
+                    value={p.sconto}
+                    onChange={(e) =>
+                      handleProdottoChange(idx, 'sconto', e.target.value)
+                    }
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-medium text-gray-500">
+                    Tot.
+                  </label>
+                  <div className="flex h-10 items-center rounded border bg-gray-100 px-2 font-medium text-sm overflow-hidden whitespace-nowrap">
+                    €{(p.quantita * p.prezzo_unitario - (p.sconto ?? 0)).toFixed(2)}
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  className="flex h-10 items-center gap-1 rounded bg-red-50 px-3 text-red-600 transition-colors hover:bg-red-100"
+                  type="button"
+                  onClick={() => {
+                    const updatedProducts = fattura.prodotti.filter(
+                      (_, i) => i !== idx
+                    )
+                    const updated = calculateTotals({ ...fattura, prodotti: updatedProducts })
+                    setFattura(updated)
+                    onChange(updated)
+                  }}
+                >
+                  <Trash className="h-4 w-4" />
+                  <span className="lg:hidden">Rimuovi</span>
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
-        <div className="py-4">
-          <div className="flex flex-col">
-            <label htmlFor="sconto">Sconto</label>
+          ))}
+
+          <button
+            className="btn btn-secondary flex items-center gap-2"
+            type="button"
+            onClick={addProdotto}
+          >
+            <Plus className="h-5 w-5" />
+            Aggiungi Prodotto
+          </button>
+        </div>
+      </div>
+
+      {/* Riepilogo Totali e IVA */}
+      <div className="rounded-lg bg-gray-100 p-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold" htmlFor="sconto">
+              Sconto Generale (€)
+            </label>
             <input
+              className="rounded border p-2 border-gray-300 bg-white"
               id="sconto"
               min={0}
-              placeholder="Sconto"
+              placeholder="0.00"
               step={1}
               type="number"
               value={fattura.sconto}
@@ -328,40 +570,65 @@ function FormFattura({ onChange }: Readonly<FormFatturaProps>) {
               }}
             />
           </div>
-          <p>SubTotale: €{fattura.totale_imponibile.toFixed(2)}</p>
-          <p>SubTotale Scontato €{fattura.totale_scontato.toFixed(2)}</p>
-          <p>
-            IVA: €{fattura.totale_scontato * 0.22} ({fattura.iva_percentuale}%)
-          </p>
-          <p>
-            <b>Totale: €{fattura.totale.toFixed(2)}</b>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            className="btn btn-secondary"
-            type="button"
-            onClick={addProdotto}
-          >
-            <Plus />
-            Aggiungi
-          </button>
+
+          <div className="flex flex-col gap-2">
+            <label className="font-semibold" htmlFor="iva">
+              IVA (%)
+            </label>
+            <input
+              className="rounded border p-2 border-gray-300 bg-white"
+              id="iva"
+              min={0}
+              placeholder="22"
+              step={1}
+              type="number"
+              value={fattura.iva_percentuale}
+              onChange={(e) => handleChange('iva_percentuale', parseFloat(e.target.value) || 0)}
+            />
+          </div>
+
+          <div className="space-y-2 text-right md:col-span-2 lg:col-span-1">
+            <div className="flex justify-between md:justify-end md:gap-8">
+              <span className="text-gray-600">SubTotale Imponibile:</span>
+              <span className="font-medium">
+                €{fattura.totale_imponibile.toFixed(2)}
+              </span>
+            </div>
+            {fattura.sconto && (
+              <div className="flex justify-between md:justify-end md:gap-8">
+                <span className="text-gray-600">Sconto Generale:</span>
+                <span className="font-medium text-red-600">
+                  -€{fattura.sconto.toFixed(2)}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between md:justify-end md:gap-8">
+              <span className="text-gray-600">IVA ({fattura.iva_percentuale}%):</span>
+              <span className="font-medium">
+                €{(fattura.totale_scontato * (fattura.iva_percentuale / 100)).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between border-t border-gray-300 pt-2 text-xl font-bold md:justify-end md:gap-8">
+              <span>Totale:</span>
+              <span className="text-blue-700">€{fattura.totale.toFixed(2)}</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Note */}
-      <div className="flex w-full items-center gap-2">
-        <div className="flex w-full flex-col">
-          <label className="font-semibold" htmlFor="note">
-            Note
-          </label>
-          <textarea
-            className="w-full rounded border p-2"
-            id="note"
-            value={fattura.note}
-            onChange={(e) => handleChange('note', e.target.value)}
-          />
-        </div>
+      <div className="flex w-full flex-col gap-2">
+        <label className="font-semibold" htmlFor="note">
+          Note (Facoltative)
+        </label>
+        <textarea
+          className="w-full rounded border p-3 border-gray-300"
+          id="note"
+          placeholder="Aggiungi eventuali note..."
+          rows={3}
+          value={fattura.note}
+          onChange={(e) => handleChange('note', e.target.value)}
+        />
       </div>
     </div>
   )

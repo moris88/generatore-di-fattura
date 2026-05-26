@@ -46,9 +46,7 @@ export default function SignPad({
       <SignatureCanvas
         ref={sigRef}
         canvasProps={{
-          className: twMerge(
-            'rounded bg-white w-full h-full border border-gray-300'
-          ),
+          className: 'w-full h-full',
           style: { touchAction: 'none' }, // blocca scroll su mobile
           onMouseUp: updateSignature,
           onTouchEnd: updateSignature,

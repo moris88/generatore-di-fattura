@@ -30,10 +30,10 @@ function GeneraFattura({
       <header style={{ textAlign: 'left', marginBottom: 20 }}>
         <h1 style={{ fontSize: 24, margin: 0 }}>FATTURA</h1>
         <h2 style={{ fontSize: 11, fontWeight: 'normal', margin: 0 }}>
-          Moris Corp | Partita IVA 01234567890 | PEC maurizio.tolomeo@pec.it
+          {fatturaData.emittente.nome} | Partita IVA {fatturaData.emittente.partita_iva} | PEC {fatturaData.emittente.pec}
         </h2>
         <h2 style={{ fontSize: 11, fontWeight: 'normal', margin: 0 }}>
-          Sede legale: via Monte Magno 288, Bitritto (Bari), Tel. 3123456789
+          Sede legale: {fatturaData.emittente.indirizzo}, Tel. {fatturaData.emittente.telefono}
         </h2>
         <h3
           style={{
@@ -87,6 +87,7 @@ function GeneraFattura({
               style={{
                 padding: '8px 6px',
                 textAlign: 'left',
+                width: '45%',
               }}
             >
               Descrizione
@@ -95,22 +96,34 @@ function GeneraFattura({
               style={{
                 padding: 10,
                 textAlign: 'right',
+                width: '10%',
               }}
             >
-              Quantità
+              Qtà
             </th>
             <th
               style={{
                 padding: 10,
                 textAlign: 'right',
+                width: '15%',
               }}
             >
-              Prezzo Unitario
+              Prezzo
             </th>
             <th
               style={{
                 padding: 10,
                 textAlign: 'right',
+                width: '15%',
+              }}
+            >
+              Sconto
+            </th>
+            <th
+              style={{
+                padding: 10,
+                textAlign: 'right',
+                width: '15%',
               }}
             >
               Totale
@@ -120,11 +133,12 @@ function GeneraFattura({
         <tbody>
           {fatturaData.prodotti.map((p: any, idx: number) => (
             <tr key={idx}>
-              <td style={{ padding: 8 }}>{p.descrizione}</td>
+              <td style={{ padding: 8, wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>{p.descrizione}</td>
               <td
                 style={{
                   padding: 8,
                   textAlign: 'right',
+                  verticalAlign: 'top',
                 }}
               >
                 {p.quantita}
@@ -133,6 +147,7 @@ function GeneraFattura({
                 style={{
                   padding: 8,
                   textAlign: 'right',
+                  verticalAlign: 'top',
                 }}
               >
                 €{p.prezzo_unitario.toFixed(2)}
@@ -141,9 +156,19 @@ function GeneraFattura({
                 style={{
                   padding: 8,
                   textAlign: 'right',
+                  verticalAlign: 'top',
                 }}
               >
-                €{(p.quantita * p.prezzo_unitario).toFixed(2)}
+                €{(p.sconto || 0).toFixed(2)}
+              </td>
+              <td
+                style={{
+                  padding: 8,
+                  textAlign: 'right',
+                  verticalAlign: 'top',
+                }}
+              >
+                €{(p.quantita * p.prezzo_unitario - (p.sconto || 0)).toFixed(2)}
               </td>
             </tr>
           ))}
@@ -154,11 +179,11 @@ function GeneraFattura({
       <section style={{ textAlign: 'right', marginBottom: 30 }}>
         <p style={{ margin: 0, fontSize: 14 }}>
           <b>SubTotale:</b> €{fatturaData.totale_imponibile.toFixed(2)}{' '}
-          &nbsp;|&nbsp; <b>SubTotale Scontato:</b> €
-          {fatturaData.totale_scontato.toFixed(2)}
+          &nbsp;|&nbsp; <b>Sconto Generale:</b> €
+          {(fatturaData.sconto || 0).toFixed(2)}
           <br />
           <b>Totale:</b> €{fatturaData.totale.toFixed(2)} &nbsp;|&nbsp;{' '}
-          <b>IVA:</b> €{fatturaData.totale_scontato * 0.22} (
+          <b>IVA:</b> €{(fatturaData.totale_scontato * (fatturaData.iva_percentuale / 100)).toFixed(2)} (
           {fatturaData.iva_percentuale}%)
         </p>
       </section>

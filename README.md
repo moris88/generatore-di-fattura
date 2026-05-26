@@ -21,13 +21,13 @@ Per eseguire il progetto in locale, segui questi passaggi:
 1. **Installare le dipendenze:**
 
     ```bash
-    npm install
+    pnpm install
     ```
 
 2. **Avviare il server di sviluppo:**
 
     ```bash
-    npm run dev
+    pnpm dev
     ```
 
     L'applicazione sarà disponibile all'indirizzo `http://localhost:3000`.
