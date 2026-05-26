@@ -31,7 +31,7 @@ jobs:
         run: pnpm install
 
       - name: 'Check qualità codice'
-        run: pnpm lint
+        run: pnpm check
 
       - name: 'TypeScript type check'
         run: pnpm tsc --noEmit
