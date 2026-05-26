@@ -1,0 +1,126 @@
+name: "Pull Request Checks"
+
+on:
+  pull_request:
+    branches:
+      - '**'
+    types: [opened, synchronize, reopened]
+permissions: {}
+
+jobs:
+  biome-build:
+    name: "Code Quality and Build"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: 'Installazione dipendenze'
+        run: pnpm install
+
+      - name: 'Check qualità codice'
+        run: pnpm check
+
+      - name: 'TypeScript type check'
+        run: pnpm tsc --noEmit
+
+      - name: 'Build test'
+        run: pnpm build
+
+      # - name: 'Test con coverage'
+      #   run: pnpm test:coverage
+
+      # - name: 'Commento coverage sulla PR'
+      #   uses: actions/github-script@v7
+      #   if: always()
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     script: |
+      #       const fs = require('fs')
+      #       const path = require('path')
+
+      #       const COMMENT_MARKER = '<!-- coverage-report -->'
+      #       const THRESHOLD = 70
+      #       const summaryPath = path.join(process.cwd(), 'coverage', 'coverage-summary.json')
+      #       const pr = context.issue.number
+      #       const timestamp = new Date().toUTCString()
+
+      #       const statusIcon = (pct) => pct >= THRESHOLD ? '✅' : pct >= THRESHOLD - 10 ? '⚠️' : '❌'
+      #       const fmt = (m) => `${statusIcon(m.pct)} \`${m.pct}%\` (${m.covered}/${m.total})`
+      #       const fmtTotal = (m) => `${statusIcon(m.pct)} **\`${m.pct}%\`**`
+
+      #       let body = `${COMMENT_MARKER}\n## 📊 Test Coverage Report\n\n`
+
+      #       if (!fs.existsSync(summaryPath)) {
+      #         body += `> ⚠️ No coverage data found. Tests may have failed.\n`
+      #       } else {
+      #         const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'))
+      #         const projectRoot = process.cwd()
+
+      #         const files = Object.entries(summary)
+      #           .filter(([key]) => key !== 'total')
+      #           .map(([absPath, data]) => ({
+      #             file: absPath.replace(projectRoot + '/', ''),
+      #             ...data,
+      #           }))
+      #           .sort((a, b) => a.file.localeCompare(b.file))
+
+      #         const { total } = summary
+
+      #         body += `| File | Stmts | Branch | Funcs | Lines |\n`
+      #         body += `|---|---|---|---|---|\n`
+
+      #         for (const f of files) {
+      #           body += `| \`${f.file}\` | ${fmt(f.statements)} | ${fmt(f.branches)} | ${fmt(f.functions)} | ${fmt(f.lines)} |\n`
+      #         }
+
+      #         body += `| **Total** | ${fmtTotal(total.statements)} | ${fmtTotal(total.branches)} | ${fmtTotal(total.functions)} | ${fmtTotal(total.lines)} |\n`
+
+      #         const allPass = total.statements.pct >= THRESHOLD
+      #           && total.branches.pct >= THRESHOLD
+      #           && total.functions.pct >= THRESHOLD
+      #           && total.lines.pct >= THRESHOLD
+
+      #         body += `\n> ${allPass ? '✅ All thresholds met' : '❌ Some thresholds not met'} | Minimum: **${THRESHOLD}%** | Analyzed at: ${timestamp}\n`
+      #       }
+
+      #       const { data: comments } = await github.rest.issues.listComments({
+      #         issue_number: pr,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #       })
+      #       for (const c of comments) {
+      #         if (c.body?.includes(COMMENT_MARKER)) {
+      #           await github.rest.issues.deleteComment({
+      #             comment_id: c.id,
+      #             owner: context.repo.owner,
+      #             repo: context.repo.repo,
+      #           })
+      #         }
+      #       }
+
+      #       await github.rest.issues.createComment({
+      #         issue_number: pr,
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         body,
+      #       })
+
+      # - name: 'Upload coverage report'
+      #   uses: actions/upload-artifact@v4
+      #   if: always()
+      #   with:
+      #     name: coverage-report
+      #     path: coverage/
