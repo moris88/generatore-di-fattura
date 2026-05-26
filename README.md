@@ -5,7 +5,7 @@ Questo progetto è un'applicazione web per la generazione di fatture in formato 
 ## Funzionalità
 
 * Creazione di fatture tramite un modulo interattivo.
-* Aggiunta di una firma digitale alla fattura.
+* Aggiunta di una firma digitale (tramite il componente `SignPad`, non è legalmente vincolante) alla fattura.
 * Download della fattura in formato PDF.
 
 ## Stack Tecnologico

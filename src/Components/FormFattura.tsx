@@ -4,16 +4,22 @@ import { useState } from 'react'
 
 import type { FatturaData, Prodotto } from '@/types'
 
+import { generateUniqueID } from '../utils'
+
 interface FormFatturaProps {
   onChange: (data: FatturaData) => void
   initialData?: FatturaData
   onValidationChange?: (isValid: boolean) => void
 }
 
-function FormFattura({ onChange, initialData, onValidationChange }: Readonly<FormFatturaProps>) {
+function FormFattura({
+  onChange,
+  initialData,
+  onValidationChange,
+}: Readonly<FormFatturaProps>) {
   const [fattura, setFattura] = useState<FatturaData>(
     initialData ?? {
-      numero: '',
+      numero: generateUniqueID(),
       data: new Date().toLocaleDateString(),
       luogo: '',
       emittente: {
@@ -32,7 +38,9 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
         partita_iva: '',
       },
       sconto: undefined,
-      prodotti: [{ descrizione: '', quantita: 0, prezzo_unitario: 0, sconto: 0 }],
+      prodotti: [
+        { descrizione: '', quantita: 0, prezzo_unitario: 0, sconto: 0 },
+      ],
       totale_imponibile: 0,
       totale: 0,
       totale_scontato: 0,
@@ -47,23 +55,31 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
     const newErrors: Record<string, string> = {}
 
     // Validazione Emittente
-    if (!data.emittente.nome.trim()) newErrors['emittente.nome'] = 'Ragione sociale obbligatoria'
-    if (!data.emittente.partita_iva.trim()) newErrors['emittente.partita_iva'] = 'P.IVA obbligatoria'
-    if (!data.emittente.email.trim()) newErrors['emittente.email'] = 'Email obbligatoria'
+    if (!data.emittente.nome.trim())
+      newErrors['emittente.nome'] = 'Ragione sociale obbligatoria'
+    if (!data.emittente.partita_iva.trim())
+      newErrors['emittente.partita_iva'] = 'P.IVA obbligatoria'
+    if (!data.emittente.email.trim())
+      newErrors['emittente.email'] = 'Email obbligatoria'
 
     // Validazione Cliente
-    if (!data.cliente.nome.trim()) newErrors['cliente.nome'] = 'Ragione sociale obbligatoria'
-    if (!data.cliente.partita_iva.trim()) newErrors['cliente.partita_iva'] = 'P.IVA obbligatoria'
-    if (!data.cliente.email.trim()) newErrors['cliente.email'] = 'Email obbligatoria'
+    if (!data.cliente.nome.trim())
+      newErrors['cliente.nome'] = 'Ragione sociale obbligatoria'
+    if (!data.cliente.partita_iva.trim())
+      newErrors['cliente.partita_iva'] = 'P.IVA obbligatoria'
+    if (!data.cliente.email.trim())
+      newErrors['cliente.email'] = 'Email obbligatoria'
 
     // Validazione Prodotti
     if (data.prodotti.length === 0) {
       newErrors['prodotti'] = 'Aggiungi almeno un prodotto'
     } else {
       data.prodotti.forEach((p, idx) => {
-        if (!p.descrizione.trim()) newErrors[`prodotti.${idx}.descrizione`] = 'Descrizione obbligatoria'
+        if (!p.descrizione.trim())
+          newErrors[`prodotti.${idx}.descrizione`] = 'Descrizione obbligatoria'
         if (p.quantita <= 0) newErrors[`prodotti.${idx}.quantita`] = 'Minimo 1'
-        if (p.prezzo_unitario <= 0) newErrors[`prodotti.${idx}.prezzo`] = 'Maggiore di 0'
+        if (p.prezzo_unitario <= 0)
+          newErrors[`prodotti.${idx}.prezzo`] = 'Maggiore di 0'
       })
     }
 
@@ -83,7 +99,8 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
       totaleImponibile - (updatedFattura.sconto ?? 0),
       0
     )
-    const totale = imponibileScontato * (1 + (updatedFattura.iva_percentuale || 0) / 100)
+    const totale =
+      imponibileScontato * (1 + (updatedFattura.iva_percentuale || 0) / 100)
 
     const result = {
       ...updatedFattura,
@@ -127,7 +144,8 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
     onChange(updated)
   }
 
-  const getErrorClass = (key: string) => errors[key] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+  const getErrorClass = (key: string) =>
+    errors[key] ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
 
   return (
     <div className="space-y-6">
@@ -137,17 +155,14 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="flex flex-col">
           <label className="text-sm font-medium" htmlFor="numero">
-            Numero
+            Numero Fattura (Automatico)
           </label>
           <input
-            className="rounded border p-2 border-gray-300"
+            readOnly
+            className="cursor-not-allowed rounded border border-gray-300 bg-gray-50 p-2 font-mono font-bold text-gray-500"
             id="numero"
-            placeholder={`Es: ${new Date().getFullYear()}/001`}
             type="text"
             value={fattura.numero}
-            onChange={(e) => {
-              handleChange('numero', e.target.value)
-            }}
           />
         </div>
 
@@ -156,7 +171,7 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
             Data
           </label>
           <input
-            className="rounded border p-2 border-gray-300"
+            className="rounded border border-gray-300 p-2"
             id="data"
             type="date"
             value={
@@ -178,7 +193,7 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
             Luogo
           </label>
           <input
-            className="rounded border p-2 border-gray-300"
+            className="rounded border border-gray-300 p-2"
             id="luogo"
             placeholder="Luogo di emissione"
             type="text"
@@ -211,7 +226,11 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                 })
               }
             />
-            {errors['emittente.nome'] && <span className="text-xs text-red-600 mt-1">{errors['emittente.nome']}</span>}
+            {errors['emittente.nome'] && (
+              <span className="mt-1 text-xs text-red-600">
+                {errors['emittente.nome']}
+              </span>
+            )}
           </div>
           <div className="flex flex-col">
             <label
@@ -221,7 +240,7 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
               Indirizzo
             </label>
             <input
-              className="rounded border p-2 border-gray-300"
+              className="rounded border border-gray-300 p-2"
               id="emittente-indirizzo"
               placeholder="Via, civico, città"
               type="text"
@@ -251,7 +270,11 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                 })
               }
             />
-            {errors['emittente.partita_iva'] && <span className="text-xs text-red-600 mt-1">{errors['emittente.partita_iva']}</span>}
+            {errors['emittente.partita_iva'] && (
+              <span className="mt-1 text-xs text-red-600">
+                {errors['emittente.partita_iva']}
+              </span>
+            )}
           </div>
           <div className="flex flex-col">
             <label className="text-sm font-medium" htmlFor="emittente-email">
@@ -270,14 +293,18 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                 })
               }
             />
-            {errors['emittente.email'] && <span className="text-xs text-red-600 mt-1">{errors['emittente.email']}</span>}
+            {errors['emittente.email'] && (
+              <span className="mt-1 text-xs text-red-600">
+                {errors['emittente.email']}
+              </span>
+            )}
           </div>
           <div className="flex flex-col">
             <label className="text-sm font-medium" htmlFor="emittente-pec">
               PEC
             </label>
             <input
-              className="rounded border p-2 border-gray-300"
+              className="rounded border border-gray-300 p-2"
               id="emittente-pec"
               placeholder="Indirizzo PEC"
               type="text"
@@ -295,7 +322,7 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
               Telefono
             </label>
             <input
-              className="rounded border p-2 border-gray-300"
+              className="rounded border border-gray-300 p-2"
               id="emittente-telefono"
               placeholder="Contatto telefonico"
               type="tel"
@@ -312,7 +339,7 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
       </div>
 
       {/* Cliente */}
-      <div className="rounded-lg border bg-gray-50 border-gray-300 p-4 shadow-sm">
+      <div className="rounded-lg border border-gray-300 shadow-sm bg-gray-50 p-4">
         <h3 className="mb-4 font-semibold text-gray-700">Cliente *</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col">
@@ -332,14 +359,18 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                 })
               }
             />
-            {errors['cliente.nome'] && <span className="text-xs text-red-600 mt-1">{errors['cliente.nome']}</span>}
+            {errors['cliente.nome'] && (
+              <span className="mt-1 text-xs text-red-600">
+                {errors['cliente.nome']}
+              </span>
+            )}
           </div>
           <div className="flex flex-col">
             <label className="text-sm font-medium" htmlFor="cliente-indirizzo">
               Indirizzo
             </label>
             <input
-              className="rounded border p-2 border-gray-300"
+              className="rounded border border-gray-300 p-2"
               id="cliente-indirizzo"
               placeholder="Indirizzo cliente"
               type="text"
@@ -369,7 +400,11 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                 })
               }
             />
-            {errors['cliente.partita_iva'] && <span className="text-xs text-red-600 mt-1">{errors['cliente.partita_iva']}</span>}
+            {errors['cliente.partita_iva'] && (
+              <span className="mt-1 text-xs text-red-600">
+                {errors['cliente.partita_iva']}
+              </span>
+            )}
           </div>
           <div className="flex flex-col">
             <label className="text-sm font-medium" htmlFor="cliente-email">
@@ -388,14 +423,18 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                 })
               }
             />
-            {errors['cliente.email'] && <span className="text-xs text-red-600 mt-1">{errors['cliente.email']}</span>}
+            {errors['cliente.email'] && (
+              <span className="mt-1 text-xs text-red-600">
+                {errors['cliente.email']}
+              </span>
+            )}
           </div>
           <div className="flex flex-col">
             <label className="text-sm font-medium" htmlFor="cliente-telefono">
               Telefono
             </label>
             <input
-              className="rounded border p-2 border-gray-300"
+              className="rounded border border-gray-300 p-2"
               id="cliente-telefono"
               placeholder="Telefono cliente"
               type="tel"
@@ -416,12 +455,14 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
         <h3 className="mb-4 font-semibold">Prodotti/Servizi *</h3>
         <div className="space-y-4">
           {fattura.prodotti.length === 0 && (
-            <p className="text-sm text-red-500 font-medium">Aggiungi almeno un prodotto per generare la fattura.</p>
+            <p className="font-medium text-sm text-red-500">
+              Aggiungi almeno un prodotto per generare la fattura.
+            </p>
           )}
           {fattura.prodotti.map((p, idx) => (
             <div
               key={idx}
-              className={`flex flex-col gap-4 rounded-lg border border-gray-300 bg-white p-4 shadow-sm lg:flex-row lg:items-end ${errors[`prodotti.${idx}.descrizione`] || errors[`prodotti.${idx}.quantita`] || errors[`prodotti.${idx}.prezzo`] ? 'border-red-200 bg-red-50' : 'bg-white'}`}
+              className={`flex flex-col gap-4 rounded-lg border border-gray-300 p-4 shadow-sm lg:flex-row lg:items-end ${errors[`prodotti.${idx}.descrizione`] || errors[`prodotti.${idx}.quantita`] || errors[`prodotti.${idx}.prezzo`] ? 'border-red-200 bg-red-50' : 'bg-white'}`}
             >
               <div className="flex-3 flex flex-col">
                 <label
@@ -440,9 +481,13 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                     handleProdottoChange(idx, 'descrizione', e.target.value)
                   }
                 />
-                {errors[`prodotti.${idx}.descrizione`] && <span className="text-[10px] text-red-600 mt-0.5">{errors[`prodotti.${idx}.descrizione`]}</span>}
+                {errors[`prodotti.${idx}.descrizione`] && (
+                  <span className="mt-0.5 text-[10px] text-red-600">
+                    {errors[`prodotti.${idx}.descrizione`]}
+                  </span>
+                )}
               </div>
-              <div className="flex-2 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4">
+              <div className="grid flex-2 grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4">
                 <div className="flex flex-col">
                   <label
                     className="text-xs font-medium text-gray-500"
@@ -451,7 +496,7 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                     Qtà *
                   </label>
                   <input
-                    className={`rounded border p-2 ${getErrorClass(`prodotti.${idx}.quantita`)}`}
+                    className={`rounded border ${getErrorClass(`prodotti.${idx}.quantita`)}`}
                     id={`quantita-${idx}`}
                     min={0}
                     placeholder="0"
@@ -462,7 +507,11 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                       handleProdottoChange(idx, 'quantita', e.target.value)
                     }
                   />
-                  {errors[`prodotti.${idx}.quantita`] && <span className="text-[10px] text-red-600 mt-0.5">{errors[`prodotti.${idx}.quantita`]}</span>}
+                  {errors[`prodotti.${idx}.quantita`] && (
+                    <span className="mt-0.5 text-[10px] text-red-600">
+                      {errors[`prodotti.${idx}.quantita`]}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col">
                   <label
@@ -472,11 +521,11 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                     Prezzo *
                   </label>
                   <input
-                    className={`rounded border p-2 ${getErrorClass(`prodotti.${idx}.prezzo`)}`}
+                    className={`rounded border ${getErrorClass(`prodotti.${idx}.prezzo`)}`}
                     id={`prezzo-${idx}`}
                     min={0}
-                    placeholder="0.00"
-                    step={0.01}
+                    placeholder="0.0"
+                    step={0.1}
                     type="number"
                     value={p.prezzo_unitario}
                     onChange={(e) =>
@@ -487,7 +536,11 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                       )
                     }
                   />
-                  {errors[`prodotti.${idx}.prezzo`] && <span className="text-[10px] text-red-600 mt-0.5">{errors[`prodotti.${idx}.prezzo`]}</span>}
+                  {errors[`prodotti.${idx}.prezzo`] && (
+                    <span className="mt-0.5 text-[10px] text-red-600">
+                      {errors[`prodotti.${idx}.prezzo`]}
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-col">
                   <label
@@ -497,11 +550,11 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                     Sconto
                   </label>
                   <input
-                    className="rounded border p-2 border-gray-300"
+                    className="rounded border border-gray-300"
                     id={`sconto-prodotto-${idx}`}
                     min={0}
-                    placeholder="0.00"
-                    step={0.01}
+                    placeholder="0"
+                    step={1}
                     type="number"
                     value={p.sconto}
                     onChange={(e) =>
@@ -513,8 +566,12 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                   <label className="text-xs font-medium text-gray-500">
                     Tot.
                   </label>
-                  <div className="flex h-10 items-center rounded border bg-gray-100 px-2 font-medium text-sm overflow-hidden whitespace-nowrap">
-                    €{(p.quantita * p.prezzo_unitario - (p.sconto ?? 0)).toFixed(2)}
+                  <div className="flex h-10 items-center overflow-hidden whitespace-nowrap rounded border bg-gray-100 px-2 text-sm font-medium">
+                    €
+                    {(
+                      p.quantita * p.prezzo_unitario -
+                      (p.sconto ?? 0)
+                    ).toFixed(2)}
                   </div>
                 </div>
               </div>
@@ -526,7 +583,10 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
                     const updatedProducts = fattura.prodotti.filter(
                       (_, i) => i !== idx
                     )
-                    const updated = calculateTotals({ ...fattura, prodotti: updatedProducts })
+                    const updated = calculateTotals({
+                      ...fattura,
+                      prodotti: updatedProducts,
+                    })
                     setFattura(updated)
                     onChange(updated)
                   }}
@@ -557,7 +617,7 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
               Sconto Generale (€)
             </label>
             <input
-              className="rounded border p-2 border-gray-300 bg-white"
+              className="rounded border border-gray-300 bg-white p-2"
               id="sconto"
               min={0}
               placeholder="0.00"
@@ -576,14 +636,16 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
               IVA (%)
             </label>
             <input
-              className="rounded border p-2 border-gray-300 bg-white"
+              className="rounded border border-gray-300 bg-white p-2"
               id="iva"
               min={0}
               placeholder="22"
               step={1}
               type="number"
               value={fattura.iva_percentuale}
-              onChange={(e) => handleChange('iva_percentuale', parseFloat(e.target.value) || 0)}
+              onChange={(e) =>
+                handleChange('iva_percentuale', parseFloat(e.target.value) || 0)
+              }
             />
           </div>
 
@@ -603,9 +665,15 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
               </div>
             )}
             <div className="flex justify-between md:justify-end md:gap-8">
-              <span className="text-gray-600">IVA ({fattura.iva_percentuale}%):</span>
+              <span className="text-gray-600">
+                IVA ({fattura.iva_percentuale}%):
+              </span>
               <span className="font-medium">
-                €{(fattura.totale_scontato * (fattura.iva_percentuale / 100)).toFixed(2)}
+                €
+                {(
+                  fattura.totale_scontato *
+                  (fattura.iva_percentuale / 100)
+                ).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between border-t border-gray-300 pt-2 text-xl font-bold md:justify-end md:gap-8">
@@ -622,7 +690,7 @@ function FormFattura({ onChange, initialData, onValidationChange }: Readonly<For
           Note (Facoltative)
         </label>
         <textarea
-          className="w-full rounded border p-3 border-gray-300"
+          className="w-full rounded border border-gray-300 p-3"
           id="note"
           placeholder="Aggiungi eventuali note..."
           rows={3}
