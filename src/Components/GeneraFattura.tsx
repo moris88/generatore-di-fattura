@@ -12,6 +12,11 @@ function GeneraFattura({
   technicalSignature,
 }: Readonly<FatturaProps>) {
   if (!fatturaData) return null
+
+  const formatValue = (value: string | undefined | null) => {
+    return value && value.trim() !== '' ? value : 'N/A'
+  }
+
   return (
     <div
       id="fatturaDiv"
@@ -27,47 +32,40 @@ function GeneraFattura({
       }}
     >
       {/* Intestazione */}
-      <header style={{ textAlign: 'left', marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, margin: 0 }}>FATTURA</h1>
-        <h2 style={{ fontSize: 11, fontWeight: 'normal', margin: 0 }}>
-          {fatturaData.emittente.nome} | Partita IVA {fatturaData.emittente.partita_iva} | PEC {fatturaData.emittente.pec}
-        </h2>
-        <h2 style={{ fontSize: 11, fontWeight: 'normal', margin: 0 }}>
-          Sede legale: {fatturaData.emittente.indirizzo}, Tel. {fatturaData.emittente.telefono}
-        </h2>
-        <h3
-          style={{
-            fontSize: 16,
-            fontWeight: 'normal',
-            marginTop: 5,
-            textAlign: 'right',
-          }}
-        >
-          Numero Fattura: {fatturaData.numero}
-        </h3>
+      <header style={{ textAlign: 'left', marginBottom: 30 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 'black', margin: '0 0 15px 0', color: '#1d4ed8' }}>FATTURA</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ fontSize: 11, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 14, fontWeight: 'bold', marginBottom: 5 }}>{formatValue(fatturaData.emittente.nome)}</div>
+            <div>{formatValue(fatturaData.emittente.indirizzo)}</div>
+            <div>P.IVA: {formatValue(fatturaData.emittente.partita_iva)}</div>
+            <div>Email: {formatValue(fatturaData.emittente.email)}</div>
+            {fatturaData.emittente.pec && <div>PEC: {fatturaData.emittente.pec}</div>}
+            {fatturaData.emittente.telefono && <div>Tel: {fatturaData.emittente.telefono}</div>}
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <h3 style={{ fontSize: 18, fontWeight: 'bold', margin: 0 }}>n. {formatValue(fatturaData.numero)}</h3>
+            <p style={{ margin: 0, fontSize: 12, color: '#666' }}>del {formatValue(fatturaData.data)}</p>
+          </div>
+        </div>
       </header>
 
       {/* Informazioni Fornitore / Cliente */}
       <section
         style={{
           display: 'flex',
-          justifyContent: 'end',
-          marginBottom: 20,
+          justifyContent: 'flex-end',
+          marginBottom: 30,
         }}
       >
-        <div style={{ textAlign: 'right', fontStyle: 'italic' }}>
-          <h3 style={{ marginBottom: 5 }}>Cliente</h3>
-          <p style={{ margin: 0 }}>
-            <b>{fatturaData.cliente.nome}</b>
-            <br />
-            {fatturaData.cliente.indirizzo}
-            <br />
-            Email: {fatturaData.cliente.email}
-            <br />
-            Tel: {fatturaData.cliente.telefono}
-            <br />
-            P.IVA: {fatturaData.cliente.partita_iva}
-          </p>
+        <div style={{ textAlign: 'right', padding: '15px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #f3f4f6', minWidth: '200px' }}>
+          <h3 style={{ fontSize: 10, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 5, letterSpacing: '0.05em' }}>Destinatario</h3>
+          <div style={{ fontSize: 13, fontWeight: 'bold' }}>{formatValue(fatturaData.cliente.nome)}</div>
+          <div style={{ fontSize: 11, color: '#4b5563', marginTop: 3 }}>
+            {formatValue(fatturaData.cliente.indirizzo)}<br />
+            P.IVA: {formatValue(fatturaData.cliente.partita_iva)}<br />
+            {formatValue(fatturaData.cliente.email)}
+          </div>
         </div>
       </section>
 
@@ -176,16 +174,33 @@ function GeneraFattura({
       </table>
 
       {/* Totali */}
-      <section style={{ textAlign: 'right', marginBottom: 30 }}>
-        <p style={{ margin: 0, fontSize: 14 }}>
-          <b>SubTotale:</b> €{fatturaData.totale_imponibile.toFixed(2)}{' '}
-          &nbsp;|&nbsp; <b>Sconto Generale:</b> €
-          {(fatturaData.sconto || 0).toFixed(2)}
-          <br />
-          <b>Totale:</b> €{fatturaData.totale.toFixed(2)} &nbsp;|&nbsp;{' '}
-          <b>IVA:</b> €{(fatturaData.totale_scontato * (fatturaData.iva_percentuale / 100)).toFixed(2)} (
-          {fatturaData.iva_percentuale}%)
-        </p>
+      <section style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 30 }}>
+        <div style={{ width: '280px', borderTop: '2px solid #1d4ed8', paddingTop: 15 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12 }}>
+            <span style={{ color: '#6b7280' }}>SubTotale Imponibile:</span>
+            <span style={{ fontWeight: 'semibold' }}>€{fatturaData.totale_imponibile.toFixed(2)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12 }}>
+            <span style={{ color: '#6b7280' }}>Sconto Generale:</span>
+            <span style={{ fontWeight: 'semibold', color: '#dc2626' }}>-€{(fatturaData.sconto || 0).toFixed(2)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 12 }}>
+            <span style={{ color: '#6b7280' }}>IVA ({fatturaData.iva_percentuale}%):</span>
+            <span style={{ fontWeight: 'semibold' }}>€{(fatturaData.totale_scontato * (fatturaData.iva_percentuale / 100)).toFixed(2)}</span>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            marginTop: 12, 
+            paddingTop: 12, 
+            borderTop: '1px solid #e5e7eb',
+            fontSize: 20,
+            fontWeight: 'black'
+          }}>
+            <span style={{ color: '#111827' }}>TOTALE:</span>
+            <span style={{ color: '#1d4ed8' }}>€{fatturaData.totale.toFixed(2)}</span>
+          </div>
+        </div>
       </section>
 
       {/* Note */}
