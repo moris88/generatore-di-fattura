@@ -30,7 +30,12 @@ import Popup from './Popup'
 import SignPad from './SignPad'
 import WebcamCapture from './WebcamCapture'
 
+const THEME_STORAGE_KEY = 'darkMode'
+
 export default function App() {
+	const [isDarkMode, setIsDarkMode] = useState(
+		() => localStorage.getItem(THEME_STORAGE_KEY) === 'true',
+	)
 	const [attachments, setAttachments] = useState<File[]>([])
 	const [isInitializing, setIsInitializing] = useState(true)
 
@@ -57,6 +62,10 @@ export default function App() {
 	const [attachmentPreviews, setAttachmentPreviews] = useState<
 		{ url: string; type: string; name: string }[]
 	>([])
+
+	useEffect(() => {
+		localStorage.setItem(THEME_STORAGE_KEY, String(isDarkMode))
+	}, [isDarkMode])
 
 	// Caricamento asincrono degli allegati (possono essere pesanti)
 	useEffect(() => {
@@ -312,7 +321,9 @@ export default function App() {
 	}
 
 	return (
-		<div className="flex min-h-screen flex-col items-center gap-6 bg-gray-100 p-2 sm:p-4">
+		<div
+			className={`flex min-h-screen flex-col items-center gap-6 bg-gray-100 p-2 sm:p-4 ${isDarkMode ? 'dark-mode' : ''}`}
+		>
 			{showPopup && (
 				<Popup
 					isOpen={showPopup}
@@ -338,14 +349,23 @@ export default function App() {
 						<h1 className="font-black text-blue-700 text-xl uppercase tracking-tight sm:text-2xl">
 							Generatore di fattura
 						</h1>
-						<button
-							type="button"
-							onClick={() => setShowResetPopup(true)}
-							className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 font-bold text-red-600 text-xs transition-colors hover:bg-red-100 active:scale-95"
-						>
-							<Refresh className="h-4 w-4" />
-							RESETTA FATTURA
-						</button>
+						<div className="flex flex-wrap items-center justify-center gap-2">
+							<button
+								type="button"
+								onClick={() => setIsDarkMode(!isDarkMode)}
+								className="rounded-lg border border-gray-300 px-4 py-2 font-bold text-xs transition-colors hover:bg-gray-200 hover:text-black active:scale-95"
+							>
+								Modalità {isDarkMode ? 'chiara' : 'scura'}
+							</button>
+							<button
+								type="button"
+								onClick={() => setShowResetPopup(true)}
+								className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 font-bold text-red-600 text-xs transition-colors hover:bg-red-100 active:scale-95"
+							>
+								<Refresh className="h-4 w-4" />
+								RESETTA FATTURA
+							</button>
+						</div>
 					</div>
 
 					<FormFattura
